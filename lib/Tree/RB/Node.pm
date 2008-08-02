@@ -3,11 +3,13 @@ package Tree::RB::Node;
 use strict;
 use Carp;
 use Tree::RB::Node::_Constants;
+use vars qw( $VERSION @EXPORT_OK );
 
-use Exporter 'import';
-our @EXPORT_OK = qw[set_color color_of parent_of left_of right_of];
+require Exporter;
+*import    = \&Exporter::import;
+@EXPORT_OK = qw[set_color color_of parent_of left_of right_of];
 
-our $VERSION = '0.1';
+$VERSION = '0.2';
 
 my %attribute = (
     key    => _KEY,
@@ -144,6 +146,10 @@ sub strip {
 sub DESTROY { $_[0]->strip; }
 
 # Null aware accessors to assist with rebalancings during insertion and deletion
+#
+# A weird case of Java to the rescue!
+# These are inspired by http://www.javaresearch.org/source/jdk142/java/util/TreeMap.java.html
+# which was found via http://en.wikipedia.org/wiki/Red-black_tree#Implementations
 
 sub set_color {
     my ($node, $color) = @_;
