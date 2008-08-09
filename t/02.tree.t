@@ -1,6 +1,7 @@
-use Test::More tests => 29;
+use Test::More tests => 36;
 use strict;
 use warnings;
+use Data::Dumper;
 
 use_ok( 'Tree::RB' );
 
@@ -40,32 +41,32 @@ can_ok($it, 'next');
 
 my @iter_tests = (
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'Egypt' && $node->val eq 'Cairo', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'Egypt' && $node->val eq 'Cairo', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'England' && $node->val eq 'London', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'England' && $node->val eq 'London', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'France' && $node->val eq 'Paris', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'France' && $node->val eq 'Paris', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'Germany' && $node->val eq 'Berlin', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'Germany' && $node->val eq 'Berlin', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'Hungary' && $node->val eq 'Budapest', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'Hungary' && $node->val eq 'Budapest', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok($node->key eq 'Ireland' && $node->val eq 'Dublin', 'iterator check');
+        my $node = $_[0]->next;
+        ok($node->key eq 'Ireland' && $node->val eq 'Dublin', 'iterator check');
     },
     sub {
-	my $node = $_[0]->next;
-	ok(!defined $node, 'iterator check - no more items');
+        my $node = $_[0]->next;
+        ok(!defined $node, 'iterator check - no more items');
     },
 );
 foreach my $t (@iter_tests) {
@@ -92,3 +93,35 @@ Longer way to reverse
 foreach my $t (@rev_iter_tests) {
     $t->($it);
 }
+
+# seeking
+my $node;
+$it = $tree->iter('France');
+$node = $it->next;
+is($node->key, 'France', 'seek check, key exists');
+
+$it = $tree->iter('Iceland');
+$node = $it->next;
+is($node->key, 'Ireland', 'seek check, key does not exist but is lt max key');
+
+$it = $tree->iter('Timbuktu');
+$node = $it->next;
+ok(!defined $node, 'seek check, non existant key gt all keys')
+  or diag(Dumper($node));
+
+# seeking in reverse
+$it = $tree->rev_iter('Hungary');
+$node = $it->next;
+is($node->key, 'Hungary', 'reverse seek check, key exists');
+$node = $it->next;
+is($node->key, 'Germany', 'reverse seek check, next key lt this one');
+
+$it = $tree->rev_iter('Finland');
+$node = $it->next;
+is($node->key, 'England', 'reverse seek check, key does not exist but is gt min key');
+
+$it = $tree->rev_iter('Albania');
+$node = $it->next;
+ok(!defined $node, 'reverse seek check, non existant key lt all keys');
+
+__END__ 

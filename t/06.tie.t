@@ -1,4 +1,4 @@
-use Test::More tests => 24;
+use Test::More tests => 37;
 use strict;
 use warnings;
 use Data::Dumper;
@@ -24,14 +24,8 @@ ok(keys %capital == 0, 'Size check after deleting sole element');
 isa_ok($deleted, 'Tree::RB::Node');
 ok($deleted->key eq 'France' && $deleted->val eq 'Paris', 'check deleted node');
 
-$capital{'France'} = 'Paris';
-$capital{'England'} = 'London';
-$capital{'Hungary'} = 'Budapest';
-$capital{'Ireland'} = 'Dublin';
-$capital{'Egypt'}   = 'Cairo';
-$capital{'Germany'} = 'Berlin';
-
-ok(keys %capital == 6, 'Size check (keys) after inserts');
+setup();
+ok(keys   %capital == 6, 'Size check (keys) after inserts');
 ok(scalar %capital == 6, 'Size check (scalar) after inserts');
 
 my @keys = qw/Egypt England France Germany Hungary Ireland/;
@@ -74,12 +68,69 @@ ok(@$tied == 0, 'underlying array is empty after untie');
 $tied = tie(%capital, 'Tree::RB', sub { $_[1] cmp $_[0] });
 
 isa_ok($tied, 'Tree::RB');
-
-$capital{'France'}  = 'Paris';
-$capital{'England'} = 'London';
-$capital{'Hungary'} = 'Budapest';
-$capital{'Ireland'} = 'Dublin';
-$capital{'Egypt'}   = 'Cairo';
-$capital{'Germany'} = 'Berlin';
+setup();
 
 is_deeply([keys %capital], [reverse @keys], 'check keys list (reverse sort)');
+untie %capital;
+
+# Seeking
+$tied = tie(%capital, 'Tree::RB');
+setup();
+can_ok('Tree::RB', 'hseek');
+
+$tied->hseek('Egypt');
+$key = each %capital;
+is($key, 'Egypt', 'hseek to min key');
+
+$tied->hseek('Germany');
+($key, $val) = each %capital;
+is($key, 'Germany', 'hseek check key');
+$key = each %capital;
+is($key, 'Hungary', 'hseek check sequence');
+
+$tied->hseek('Japan');
+($key, $val) = each %capital;
+is_deeply([$key, $val], [undef, undef],  'hseek to key gt max key');
+
+$tied->hseek('Iceland');
+$key = each %capital;
+is($key, 'Ireland', 'hseek to non existent key lt max key');
+
+$tied->hseek({-key=> 'Belgium'});
+$key = each %capital;
+is($key, 'Egypt', 'hseek to key lt min key');
+
+# Reverse Seeking
+
+$tied->hseek({-reverse=> 1});
+$key = each %capital;
+is($key, 'Ireland', 'reverse hseek to max key');
+$key = each %capital;
+is($key, 'Hungary', 'reverse hseek check sequence');
+
+$tied->hseek('Germany', {-reverse=> 1});
+$key = each %capital;
+is($key, 'Germany', 'reverse hseek to existing key');
+
+$tied->hseek('Iceland', {-reverse=> 1});
+$key = each %capital;
+is($key, 'Hungary', 'reverse hseek to non existing key gt min');
+
+$tied->hseek('Belgium', {-reverse=> 1});
+$key = each %capital;
+is_deeply($key, undef,  'reverse hseek to non existing key lt min');
+
+$tied->hseek({-reverse=> 1, -key=> 'Panama'});
+$key = each %capital;
+is($key, 'Ireland', 'reverse hseek to non existing key gt max');
+
+## Helper Functions 
+
+sub setup {
+    $capital{'France'}  = 'Paris';
+    $capital{'England'} = 'London';
+    $capital{'Hungary'} = 'Budapest';
+    $capital{'Ireland'} = 'Dublin';
+    $capital{'Egypt'}   = 'Cairo';
+    $capital{'Germany'} = 'Berlin';
+} 

@@ -6,27 +6,29 @@ use Carp;
 use Tree::RB::Node qw[set_color color_of parent_of left_of right_of];
 use Tree::RB::Node::_Constants;
 use vars qw( $VERSION @EXPORT_OK );
-$VERSION = '0.2';
+$VERSION = '0.3';
 
 require Exporter;
 *import    = \&Exporter::import;
 @EXPORT_OK = qw[LUEQUAL LUGTEQ LULTEQ LUGREAT LULESS LUNEXT LUPREV];
 
-use Data::Dumper;
-use constant {
-    LUEQUAL => 0,
-    LUGTEQ  => 1,
-    LULTEQ  => 2,
-    LUGREAT => 4,
-    LULESS  => 5,
-    LUNEXT  => 6,
-    LUPREV  => 7,
+use enum qw{
+    LUEQUAL
+    LUGTEQ 
+    LULTEQ 
+    LUGREAT
+    LULESS 
+    LUNEXT 
+    LUPREV 
 };
-use constant {
-    ROOT  => 0,
-    CMP   => 1,
-    SIZE  => 2,
-    HASH_ITER => 3,
+
+# object slots
+use enum qw{
+    ROOT
+    CMP 
+    SIZE
+    HASH_ITER
+    HASH_SEEK_ARG
 };
 
 # Node and hash Iteration
@@ -36,13 +38,23 @@ sub _mk_iter {
     my $next_fn  = shift || 'successor';
     return sub {
         my $self = shift;
+        my $key  = shift;
         my $node;
         my $iter = sub {
             if($node) {
                 $node = $node->$next_fn;
             }
             else {
-                $node = $self->$start_fn;
+                if(defined $key) {
+                    # seek to $key
+                    (undef, $node) = $self->lookup(
+                        $key, 
+                        $next_fn eq 'successor' ? LUGTEQ : LULTEQ
+                    );
+                } 
+                else {
+                    $node = $self->$start_fn;
+                }
             }
             return $node;
         };
@@ -55,10 +67,48 @@ sub _mk_iter {
 *iter     = _mk_iter(qw/min successor/);
 *rev_iter = _mk_iter(qw/max predecessor/);
 
+sub hseek {
+    my $self = shift; 
+    my $arg  = shift;
+    defined $arg or croak("Can't seek to an undefined key");
+    my %args;
+    if(ref $arg eq 'HASH') {
+        %args = %$arg;
+    } 
+    else {
+        $args{-key} = $arg;
+    }
+    
+    if(@_ && exists $args{-key}) {
+        my $arg = shift;
+        if(ref $arg eq 'HASH') {
+            %args = (%$arg, %args);
+        } 
+    } 
+    if(! exists $args{-key}) {
+        defined $args{'-reverse'} or croak("Expected option '-reverse' is undefined");
+    }
+    $self->[HASH_SEEK_ARG] = \%args;
+    if($self->[HASH_ITER]) {
+        $self->_reset_hash_iter;
+    } 
+} 
+
+sub _reset_hash_iter {
+    my $self = shift; 
+    if($self->[HASH_SEEK_ARG]) {
+        my $iter = ($self->[HASH_SEEK_ARG]{'-reverse'} ? 'rev_iter' : 'iter');
+        $self->[HASH_ITER] = $self->$iter($self->[HASH_SEEK_ARG]{'-key'});
+    } 
+    else {
+        $self->[HASH_ITER] = $self->iter;
+    }
+} 
+
 sub FIRSTKEY {
     my $self = shift; 
+    $self->_reset_hash_iter;
 
-    $self->[HASH_ITER] = $self->iter;
     my $node = $self->[HASH_ITER]->next
       or return;
     return $node->[_KEY];
@@ -135,7 +185,9 @@ sub max {
 
 sub lookup {
     my $self = shift;
-    my $key  = shift or croak('Missing arg: $key');
+    my $key  = shift;
+    defined $key
+      or croak("Can't use undefined value as key");
     my $mode = shift || LUEQUAL;
     my $cmp = $self->[CMP];
 
@@ -172,7 +224,8 @@ sub lookup {
             return wantarray ? ($y->[_VAL], $y) : $y->[_VAL];
         }
         else {
-            my $next = $y->successor;
+            my $next = $y->successor
+              or return;
             return wantarray ? ($next->[_VAL], $next) : $next->[_VAL];
         }
     }
@@ -181,7 +234,8 @@ sub lookup {
             return wantarray ? ($y->[_VAL], $y) : $y->[_VAL];
         }
         else {
-            my $next = $y->predecessor;
+            my $next = $y->predecessor
+              or return;
             return wantarray ? ($next->[_VAL], $next) : $next->[_VAL];
         }
     }
@@ -199,11 +253,11 @@ sub EXISTS {
 
 sub put {
     my $self = shift;
-    my $key_or_node = shift or croak('key or node required');
+    my $key_or_node = shift;
+    defined $key_or_node
+      or croak("Can't use undefined value as key or node");
     my $val = shift;
-    if(!$val && ref $key_or_node ne 'Tree::RB::Node') {
-        croak('value required');
-    }
+
     my $cmp = $self->[CMP];
     my $z = (ref $key_or_node eq 'Tree::RB::Node')
               ? $key_or_node
@@ -287,8 +341,10 @@ sub _fix_after_insertion {
 }
 
 sub delete {
-    my $self = shift;
-    my $key_or_node = shift or croak('key or node required');
+    my ($self, $key_or_node) = @_;
+    defined $key_or_node
+      or croak("Can't use undefined value as key or node");
+
     my $z = (ref $key_or_node eq 'Tree::RB::Node')
               ? $key_or_node
               : ($self->lookup($key_or_node))[1];
@@ -626,6 +682,62 @@ This can be used to step through the tree in reverse order.
 
 get() is an alias for lookup().
 
+=head2 iter([KEY])
+
+Returns an iterator object that can be used to traverse the tree in order.
+
+The iterator object supports a 'next' method that returns the next node in the
+tree or undef if all of the nodes have been visited.
+
+See the synopsis for an example.
+
+If a key is supplied, the iterator returned will traverse the tree in order starting from
+the node with key greater than or equal to the specified key.
+
+    $it = $tree->iter('France');
+    my $node = $it->next;
+    print $node->key; # -> 'France'
+
+=head2 rev_iter([KEY])
+
+Returns an iterator object that can be used to traverse the tree in reverse order.
+
+If a key is supplied, the iterator returned will traverse the tree in order starting from
+the node with key less than or equal to the specified key.
+
+    $it = $tree->rev_iter('France');
+    my $node = $it->next;
+    print $node->key; # -> 'England'
+
+=head2 hseek(KEY, [{-reverse => 1|0}])
+
+For tied hashes, determines the next entry to be returned by each.
+
+    tie my %capital, 'Tree::RB';
+
+    $capital{'France'}  = 'Paris';
+    $capital{'England'} = 'London';
+    $capital{'Hungary'} = 'Budapest';
+    $capital{'Ireland'} = 'Dublin';
+    $capital{'Egypt'}   = 'Cairo';
+    $capital{'Germany'} = 'Berlin';
+    tied(%capital)->hseek('Germany');
+
+    ($key, $val) = each %capital;
+    print "$key, $val"; # -> Germany, Berlin 
+
+The direction of iteration can be reversed by passing a hashref with key '-reverse' and value 1
+to hseek after or instead of KEY, e.g. to iterate over the hash in reverse order:
+
+    tied(%capital)->hseek({-reverse => 1});
+    $key = each %capital;
+    print $key; # -> Ireland 
+
+The following calls are equivalent
+
+    tied(%capital)->hseek('Germany', {-reverse => 1});
+    tied(%capital)->hseek({-key => 'Germany', -reverse => 1});
+
 =head2 put(KEY, VALUE)
 
 Adds a new node to the tree. 
@@ -643,7 +755,7 @@ deleted from the tree and returned, otherwise C<undef> is returned.
 
 =head1 DEPENDENCIES
 
-None.
+L<enum>
 
 
 =head1 INCOMPATIBILITIES
@@ -652,8 +764,6 @@ None reported.
 
 
 =head1 BUGS AND LIMITATIONS
-
-No bugs have been reported.
 
 Please report any bugs or feature requests to
 C<bug-tree-rb@rt.cpan.org>, or through the web interface at
