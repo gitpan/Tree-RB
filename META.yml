@@ -1,12 +1,24 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Tree-RB
-version:      0.5
-version_from: lib/Tree/RB.pm
-installdirs:  site
+---
+name: Tree-RB
+version: 0.500001
+author:
+  - 'Arun Prasaad <arunbear@cpan.org>'
+abstract: Perl implementation of the Red/Black tree, a type of balanced binary search tree.
+license: perl
 requires:
-    enum:                          0
-    Test::More:                    0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+  Test::More: 0
+  enum: 0
+generated_by: Module::Build version 0.280801
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
+provides:
+  Tree::RB:
+    file: lib/Tree/RB.pm
+    version: 0.500001
+  Tree::RB::Node:
+    file: lib/Tree/RB/Node.pm
+    version: 0.2
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/arunbear/perl5-red-black-tree

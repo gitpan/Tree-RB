@@ -1,7 +1,6 @@
 Build.PL
 Changes
 MANIFEST
-Makefile.PL
 README
 lib/Tree/RB.pm
 lib/Tree/RB/Node.pm
@@ -13,4 +12,5 @@ t/02.tree.t
 t/03.delete.t
 t/04.lookup.t
 t/06.tie.t
-META.yml                                 Module meta-data (added by MakeMaker)
+Makefile.PL
+META.yml
