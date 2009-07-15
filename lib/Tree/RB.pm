@@ -6,7 +6,7 @@ use Carp;
 use Tree::RB::Node qw[set_color color_of parent_of left_of right_of];
 use Tree::RB::Node::_Constants;
 use vars qw( $VERSION @EXPORT_OK );
-$VERSION = 0.500_001;
+$VERSION = 0.500_002;
 
 require Exporter;
 *import    = \&Exporter::import;
@@ -192,7 +192,8 @@ sub lookup {
     my $cmp = $self->[CMP];
 
     my $y;
-    my $x = $self->[ROOT];
+    my $x = $self->[ROOT]
+      or return;
     my $next_child;
     while($x) {
         $y = $x;
