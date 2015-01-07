@@ -24,4 +24,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://github.com/arunbear/perl5-red-black-tree
-version: 0.500_005
+version: '0.500005'
